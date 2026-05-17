@@ -51,7 +51,7 @@ function Landing() {
               <Link to="/admin">
                 <Button size="lg" variant="outline">
                   <ShieldCheck className="mr-2 h-4 w-4" />
-                  Professor login
+                  Lecturer login
                 </Button>
               </Link>
             </div>
@@ -61,7 +61,7 @@ function Landing() {
             <FeatureCard
               icon={<BookOpen className="h-5 w-5" />}
               title="Curated lecture notes"
-              body="Organized by topic, posted by the professor, always accessible."
+              body="Organized by topic, posted by the lecturer, always accessible."
             />
             <FeatureCard
               icon={<MessagesSquare className="h-5 w-5" />}
@@ -71,7 +71,7 @@ function Landing() {
             <FeatureCard
               icon={<ShieldCheck className="h-5 w-5" />}
               title="Engagement tracking"
-              body="The professor sees who's participating — names, matric numbers, and activity."
+              body="The lecturer sees who's participating — names, matric numbers, and activity."
             />
           </div>
         </div>

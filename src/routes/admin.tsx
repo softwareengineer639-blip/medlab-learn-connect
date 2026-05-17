@@ -50,7 +50,7 @@ function AdminLogin({ onSuccess }: { onSuccess: (pwd: string) => void }) {
     try {
       await login({ data: { password: pwd } });
       onSuccess(pwd);
-      toast.success("Welcome, Professor.");
+      toast.success("Welcome, Lecturer.");
     } catch (e: any) {
       toast.error(e?.message || "Login failed");
     } finally {
@@ -70,7 +70,7 @@ function AdminLogin({ onSuccess }: { onSuccess: (pwd: string) => void }) {
         <Card className="w-full p-7">
           <div className="mb-5 flex items-center gap-2">
             <ShieldCheck className="h-5 w-5 text-primary" />
-            <h1 className="font-display text-xl font-semibold">Professor access</h1>
+            <h1 className="font-display text-xl font-semibold">Lecturer access</h1>
           </div>
           <form onSubmit={submit} className="space-y-4">
             <div className="space-y-1.5">
@@ -168,7 +168,7 @@ function AdminDashboard({ password, onLogout }: { password: string; onLogout: ()
               <Microscope className="h-4 w-4" />
             </div>
             <div>
-              <div className="font-display font-semibold leading-none">Professor Dashboard</div>
+              <div className="font-display font-semibold leading-none">Lecturer Dashboard</div>
               <div className="mt-0.5 text-[11px] text-muted-foreground">Mr. Fidelis's Lecture Hub</div>
             </div>
           </div>
