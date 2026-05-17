@@ -51,7 +51,7 @@ function Landing() {
               <Link to="/admin">
                 <Button size="lg" variant="outline">
                   <ShieldCheck className="mr-2 h-4 w-4" />
-                  Professor login
+                  Lecturer login
                 </Button>
               </Link>
             </div>
