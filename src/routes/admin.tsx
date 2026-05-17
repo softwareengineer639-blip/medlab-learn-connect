@@ -1,9 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { useServerFn } from "@tanstack/react-start";
-import {
-  adminLogin, adminListNotes, adminCreateNote, adminUpdateNote, adminDeleteNote, adminEngagement,
-} from "@/lib/admin.functions";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -15,7 +13,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import {
   ShieldCheck, Microscope, LogOut, Plus, Pencil, Trash2, Users, BookOpen, Activity,
@@ -23,41 +21,41 @@ import {
 import { toast } from "sonner";
 import { formatDistanceToNow } from "@/lib/utils-date";
 
-const PWD_KEY = "fidelis_admin_pwd";
-
 export const Route = createFileRoute("/admin")({ component: Admin });
 
+type AdminNote = { id: string; title: string; topic: string | null; content: string; created_at: string; updated_at: string };
+type Student = {
+  id: string; full_name: string; matric_number: string; email: string;
+  created_at: string; last_seen_at: string;
+  reactions: number; comments: number; discussions: number;
+};
+
 function Admin() {
-  const [password, setPassword] = useState<string | null>(null);
+  const { user, loading } = useAuth();
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
 
   useEffect(() => {
-    const stored = typeof window !== "undefined" ? sessionStorage.getItem(PWD_KEY) : null;
-    if (stored) setPassword(stored);
-  }, []);
+    if (!user) { setIsAdmin(null); return; }
+    (async () => {
+      const { data } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .eq("role", "admin")
+        .maybeSingle();
+      setIsAdmin(!!data);
+    })();
+  }, [user]);
 
-  if (!password) return <AdminLogin onSuccess={(p) => { sessionStorage.setItem(PWD_KEY, p); setPassword(p); }} />;
-  return <AdminDashboard password={password} onLogout={() => { sessionStorage.removeItem(PWD_KEY); setPassword(null); }} />;
+  if (loading || (user && isAdmin === null)) {
+    return <div className="grid min-h-screen place-items-center text-sm text-muted-foreground">Loading…</div>;
+  }
+  if (!user) return <NotSignedIn />;
+  if (!isAdmin) return <NotAuthorized />;
+  return <AdminDashboard />;
 }
 
-function AdminLogin({ onSuccess }: { onSuccess: (pwd: string) => void }) {
-  const [pwd, setPwd] = useState("");
-  const [loading, setLoading] = useState(false);
-  const login = useServerFn(adminLogin);
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      await login({ data: { password: pwd } });
-      onSuccess(pwd);
-      toast.success("Welcome, Lecturer.");
-    } catch (e: any) {
-      toast.error(e?.message || "Login failed");
-    } finally {
-      setLoading(false);
-    }
-  }
-
+function AuthShellLite({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-background bg-lab-grid">
       <div className="mx-auto flex max-w-md flex-col items-center px-6 py-16">
@@ -67,40 +65,52 @@ function AdminLogin({ onSuccess }: { onSuccess: (pwd: string) => void }) {
           </div>
           <div className="font-display text-lg font-semibold">Lecture Hub</div>
         </Link>
-        <Card className="w-full p-7">
-          <div className="mb-5 flex items-center gap-2">
-            <ShieldCheck className="h-5 w-5 text-primary" />
-            <h1 className="font-display text-xl font-semibold">Lecturer access</h1>
-          </div>
-          <form onSubmit={submit} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="pwd">Admin password</Label>
-              <Input id="pwd" type="password" value={pwd} onChange={(e) => setPwd(e.target.value)} autoFocus />
-            </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Verifying…" : "Enter dashboard"}
-            </Button>
-          </form>
-        </Card>
+        <Card className="w-full p-7">{children}</Card>
       </div>
     </div>
   );
 }
 
-type AdminNote = { id: string; title: string; topic: string | null; content: string; created_at: string; updated_at: string };
-type Student = {
-  id: string; full_name: string; matric_number: string; email: string;
-  created_at: string; last_seen_at: string;
-  reactions: number; comments: number; discussions: number;
-};
+function NotSignedIn() {
+  return (
+    <AuthShellLite>
+      <div className="mb-3 flex items-center gap-2">
+        <ShieldCheck className="h-5 w-5 text-primary" />
+        <h1 className="font-display text-xl font-semibold">Lecturer access</h1>
+      </div>
+      <p className="text-sm text-muted-foreground">
+        Sign in with your lecturer account to manage notes and view engagement.
+      </p>
+      <div className="mt-5 flex gap-2">
+        <Button asChild className="flex-1"><Link to="/login">Sign in</Link></Button>
+        <Button asChild variant="outline" className="flex-1"><Link to="/">Back to Hub</Link></Button>
+      </div>
+    </AuthShellLite>
+  );
+}
 
-function AdminDashboard({ password, onLogout }: { password: string; onLogout: () => void }) {
+function NotAuthorized() {
+  const { signOut } = useAuth();
+  return (
+    <AuthShellLite>
+      <div className="mb-3 flex items-center gap-2">
+        <ShieldCheck className="h-5 w-5 text-destructive" />
+        <h1 className="font-display text-xl font-semibold">Not authorized</h1>
+      </div>
+      <p className="text-sm text-muted-foreground">
+        Your account doesn't have lecturer privileges. If this is a mistake, contact the administrator.
+      </p>
+      <div className="mt-5 flex gap-2">
+        <Button asChild variant="outline" className="flex-1"><Link to="/portal">Student portal</Link></Button>
+        <Button className="flex-1" onClick={() => signOut()}>Sign out</Button>
+      </div>
+    </AuthShellLite>
+  );
+}
+
+function AdminDashboard() {
   const navigate = useNavigate();
-  const listNotes = useServerFn(adminListNotes);
-  const createNote = useServerFn(adminCreateNote);
-  const updateNote = useServerFn(adminUpdateNote);
-  const deleteNote = useServerFn(adminDeleteNote);
-  const getEngagement = useServerFn(adminEngagement);
+  const { signOut } = useAuth();
 
   const [notes, setNotes] = useState<AdminNote[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
@@ -111,16 +121,37 @@ function AdminDashboard({ password, onLogout }: { password: string; onLogout: ()
 
   async function refresh() {
     try {
-      const [n, e] = await Promise.all([
-        listNotes({ data: { password } }),
-        getEngagement({ data: { password } }),
+      const [notesRes, profilesRes, reactionsRes, commentsRes, msgsRes] = await Promise.all([
+        supabase.from("notes").select("*").order("created_at", { ascending: false }),
+        supabase.from("profiles").select("id, full_name, matric_number, email, created_at, last_seen_at").order("created_at", { ascending: false }),
+        supabase.from("reactions").select("user_id"),
+        supabase.from("comments").select("user_id"),
+        supabase.from("discussion_messages").select("user_id"),
       ]);
-      setNotes(n.notes as AdminNote[]);
-      setStudents(e.students);
-      setTotals(e.totals);
+
+      if (notesRes.error) throw notesRes.error;
+      if (profilesRes.error) throw profilesRes.error;
+
+      const count = (rows: { user_id: string }[] | null, id: string) =>
+        (rows ?? []).filter((r) => r.user_id === id).length;
+
+      const enriched = (profilesRes.data ?? []).map((p) => ({
+        ...p,
+        reactions: count(reactionsRes.data, p.id),
+        comments: count(commentsRes.data, p.id),
+        discussions: count(msgsRes.data, p.id),
+      })) as Student[];
+
+      setNotes((notesRes.data ?? []) as AdminNote[]);
+      setStudents(enriched);
+      setTotals({
+        students: enriched.length,
+        reactions: reactionsRes.data?.length ?? 0,
+        comments: commentsRes.data?.length ?? 0,
+        discussionMessages: msgsRes.data?.length ?? 0,
+      });
     } catch (err: any) {
       toast.error(err?.message || "Failed to load");
-      if (err?.message?.toLowerCase().includes("invalid")) onLogout();
     }
   }
   useEffect(() => { refresh(); /* eslint-disable-next-line */ }, []);
@@ -138,10 +169,21 @@ function AdminDashboard({ password, onLogout }: { password: string; onLogout: ()
     }
     try {
       if (editor.id) {
-        await updateNote({ data: { password, id: editor.id, title: editor.title, topic: editor.topic, content: editor.content } });
+        const { error } = await supabase.from("notes").update({
+          title: editor.title,
+          topic: editor.topic,
+          content: editor.content,
+          updated_at: new Date().toISOString(),
+        }).eq("id", editor.id);
+        if (error) throw error;
         toast.success("Note updated");
       } else {
-        await createNote({ data: { password, title: editor.title, topic: editor.topic, content: editor.content } });
+        const { error } = await supabase.from("notes").insert({
+          title: editor.title,
+          topic: editor.topic,
+          content: editor.content,
+        });
+        if (error) throw error;
         toast.success("Note posted");
       }
       setOpen(false);
@@ -153,7 +195,8 @@ function AdminDashboard({ password, onLogout }: { password: string; onLogout: ()
   async function remove(id: string) {
     if (!confirm("Delete this note? Reactions and comments will also be removed.")) return;
     try {
-      await deleteNote({ data: { password, id } });
+      const { error } = await supabase.from("notes").delete().eq("id", id);
+      if (error) throw error;
       toast.success("Deleted");
       refresh();
     } catch (e: any) { toast.error(e?.message || "Failed"); }
@@ -174,7 +217,7 @@ function AdminDashboard({ password, onLogout }: { password: string; onLogout: ()
           </div>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={() => navigate({ to: "/portal" })}>Student view</Button>
-            <Button variant="ghost" size="sm" onClick={onLogout}><LogOut className="mr-1.5 h-4 w-4" />Sign out</Button>
+            <Button variant="ghost" size="sm" onClick={() => signOut()}><LogOut className="mr-1.5 h-4 w-4" />Sign out</Button>
           </div>
         </div>
       </header>
