@@ -24,7 +24,18 @@ function Login() {
     setLoading(false);
     if (error) { toast.error(error.message); return; }
     toast.success("Welcome back");
-    navigate({ to: "/portal" });
+    const { data: userData } = await supabase.auth.getUser();
+    let dest: "/admin" | "/portal" = "/portal";
+    if (userData.user) {
+      const { data: roleRow } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userData.user.id)
+        .eq("role", "admin")
+        .maybeSingle();
+      if (roleRow) dest = "/admin";
+    }
+    navigate({ to: dest });
   }
 
   return (
